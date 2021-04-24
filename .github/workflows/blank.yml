@@ -1,0 +1,494 @@
+################## Importation des modules necessaires
+import numpy as np
+import math
+import time
+
+
+
+
+
+################## Donnees ##################
+
+E1 = [[1,3],[0,2,3,4,5],[1,5,6],[0,1,4,8],[1,3,5,7,8,9],[1,2,4,6,7],[2,5,7,9],[4,5,6,9],[3,4,9],[4,6,7,8]] #L'element i contient la liste des voisins de la piece numero i
+E2 = [[1],[0,2,3,4],[1,4],[1,4],[1,2,3]]
+
+n = len(E2) #Taille de l'entrepot
+
+P1 = [[3,4,8],[5,6,7],[4,5,6],[5,7,8,9],[0,2,7],[1,2,8,9],[1,2,3,7,8],[1,6,9],[0,1,5,9],[3,5,7,8]] #L'element i contient la liste des produits incompatibles avec le produit numero i
+P2 = [[1,2],[0,2],[0,1],[0],[]]
+ProdProv = [[1],[0,2],[1,3],[2]]
+m = len(P2) #Nombre de produits
+
+# QP = [ , ] #L'element i contient la quantite du produit numero i
+
+# PE = [ , ] #L'element i contient la place disponible dans la piece numero i
+
+
+################## Fonctions ##################
+"""
+Cree la matrice d'adjacence du graphe representant l'entrepot.
+"""
+def Mat_Adj(Ent) :
+    '''
+    Entree :
+        Ent : Liste de listes modelisant l'entrepot
+    Sortie :
+        Mat : Tableau de taille (n,n) representant la matrice d'adjacence representant le graphe de
+              Ent dont Mat(i,j) = Mat (j,i) = 1 si la piece i et j sont a cote, 0 sinon
+    '''
+    l_Ent = len(Ent)
+    Mat = np.zeros((l_Ent,l_Ent),int) #On intialise un tableau n*n avec des 0 dedans
+    for i in range(l_Ent) :
+        for j in range(len(E[i])) :
+            Voisin = Ent[i][j]
+            Mat[i][Voisin] = 1 #Pour chaque nouveau voisin, on rajoute un 1 dans la ligne i
+    return Mat
+
+
+"""
+Renvoie la liste contenant la liste Lst completee par l'element k dans toutes les positions possibles.
+"""
+def Place_Partout_Produit_K(Lst,k):
+    '''
+    Entree :
+        Lst : Liste partiellement complete composee d'entiers si la piece est occupee, de 'x' sinon
+        k : Numero du produit a ajouter
+    Sortie :
+        L_Completee : Liste de listes completee par le numero k dans toutes les positions possibles
+    '''
+    l_Lst = len(Lst)
+    L_Completee = []
+    for i in range(l_Lst):
+        if Lst[i] == 'x': #On teste si la piece i est libre
+            L_Completee += [Lst[:i] + [k] + Lst[i+1:]] #On ajoute k a la place d'un vide
+    return(L_Completee)
+
+# print(Place_Partout_Produit_K([1,2,4],5))
+
+
+
+
+
+
+
+
+############ Algorithme naif ############
+"""
+Nous creons toutes les configurations possibles sans tenir compte des compatibilites, puis nous testons si tout est compatible
+"""
+##Creations des differentes configurations et test de compatibilite
+"""
+Renvoie la liste de toutes les configurations possibles pour le stockage de NbProd produits dans NbEnt pieces.
+"""
+def Toutes_Possibilites(NbEnt,NbProd):
+    '''
+    Entree :
+        NbEnt : Nombre de pieces de l'entrepot
+        NbProd : Nombre de produits
+        k : numero du produit a placer
+    Sortie :
+        Possibilites : Liste contenant toutes les configurations de stockage, sans tenir compte des
+                       incompatibilites
+    '''
+    Possibilites = [['x']*NbEnt]
+    for k in range(NbProd):
+        l_Poss = len(Possibilites)
+        for i in range(len(Possibilites)):
+            Possibilites += Place_Partout_Produit_K(Possibilites[i],k) #On conserve toutes les listes
+    NbAvecTousLesProduits = math.factorial(NbEnt) / math.factorial(NbEnt-NbProd+1) # = Nbprod parmis NbEnt * NbProd factoriel
+    '''
+    A voir
+    NbTotalDeListes = 0
+    # for k in range(NbProd+1):
+        # Possibilite_k_produits = math.factorial(NbEnt) / math.factorial(NbEnt-k)
+        # NbTotalDeListes += Possibilite_k_produits
+    '''
+    NbTotalDeListes = len(Possibilites)
+    Possibilites = Possibilites[NbTotalDeListes - NbAvecTousLesProduits :] #On ne garde que les dernieres listes (completement remplies)
+    return Possibilites
+
+
+"""
+Renvoie un booleen indiquant si, en tenant compte des incompatibilites entre les differents produits, le stockage est possible dans la configuration Poss.
+"""
+def Stockage_Possible(Poss,Prod,Ent):###
+    '''
+    Entree:
+        Poss : Liste contenant le contenu de chaque piece
+        Prod : Liste de listes dont l'element i contient la liste des produits non compatibles avec
+               le produit numero i
+    Sortie :
+        Bool : True si les compatibilites autorisent le stockage, False sinon
+    '''
+    Bool = True
+    l_Poss = len(Poss)
+    for i in range(l_Poss):
+        if Poss[i] != 'x':
+            Piece = i
+            Voisins_Piece = Ent[Piece] #Liste des pieces voisines de Piece
+            Prod_Voisins = [] #Liste des produits situes dans des pieces adjacentes a Piece
+            for k in range(len(Voisins_Piece)):
+                if Poss[Voisins_Piece[k]] != 'x':
+                    Prod_Voisins += [Poss[Voisins_Piece[k]]]
+            for j in Prod_Voisins :
+                if j in Prod[Poss[i]]: #Nous regardons si un produit qui se situe dans une piece adjacente a Piece est incompatibles avec Prod[i]
+                    Bool = False
+    return Bool
+
+
+
+
+
+## Est-ce que le stockage des produits est possible dans l'entrepot?
+"""
+Renvoie un booleen indiquant, si un stockage des produits Prod est possible dans l'entrepot Ent ainsi que la liste des configurations possibles.
+"""
+def Stockable(Ent,Prod):
+    '''
+    Entree:
+        Ent : Liste de listes representant l'entrepot dont l'element i contient la liste des
+              voisins
+              de la piece numero i
+        Prod : Liste de liste dont l'element i contient la liste des produits incompatibles avec le
+               produit numero i
+    Sortie :
+        Bool : True si les produits peuvent etre stockes dans cet entrepot en tenant compte des
+               incompatibilites, False sinon
+        L_Possible : Liste de listes contenant les configurations du stockage qui conviennent
+    '''
+    l_Ent, l_Prod = len(Ent), len(Prod)
+    Possibilites = Toutes_Possibilites(l_Ent,l_Prod)#Liste de tous les stockages sans tenir compte des incompatibilites
+    L_Possible = []
+    Bool = False
+    for Poss in Possibilites:
+        if Stockage_Possible(Poss,Prod,Ent):#Nous testons si un stockage est possible ###
+            Bool = True
+            L_Possible += [Poss]
+    return (Bool, L_Possible)
+# t1 = time.time()
+# print(Stockable(E2,P2))
+# t2 = time.time()
+
+"""
+Renvoie un booleen indiquant, si un stockage des produits Prod est possible dans l'entrepot Ent.
+"""
+# def StockableRecursif(Ent,Prod):
+#     '''
+#     Entree:
+#         Ent : Liste de listes representant l'entrepot dont l'element i contient la liste des
+#               voisins
+#               de la piece numero i
+#         Prod : Liste de liste dont l'element i contient la liste des produits incompatibles avec le
+#                produit numero i
+#     Sortie :
+#         Bool : Booleen valant True si le stockage est possible, False sinon
+#     '''
+#     l_Ent, l_Prod = len(Ent), len(Prod)
+#     Possibilites = Toutes_Possibilites(l_Ent,l_Prod)#Liste de tous les stockages sans tenir compte des incompatibilites
+#     """
+#     Renvoie un booleen indiquant si la configuration Poss respecte les criteres de
+#     compatibilite
+#     """
+#     def Test(Poss,Produits):
+#         '''
+#         Entree :
+#             Poss : Configuration a tester
+#             Produits : Liste de listes dont l'element i contient la liste des produits non
+#                        compatibles avec le produit numero i
+#         Sortie :
+#             Booleen : Booleen valant True si la configuration Poss est un stockage qui respecte les
+#                       compatibilites entre produits, False sinon
+#         '''
+#         if len(Poss) == 0:#S'il n'y a plus de possibilite a tester, alors il n'existe pas de stockage qui satisfait les incompatibilites
+#             Booleen = False
+#             return(Booleen)
+#         elif Stockage_Possible(Poss[0],Prod,Ent):#Si la premiere possibilite est possible, alors il existe (au moins) un stockage qui satisfait les incompatibilites
+#             Booleen = True
+#             return(Booleen)
+#         else :#La premiere possibilite de la liste ne satisfait pas les conditions
+#             return(Test(Poss[1:], Prod))#On regarde dans la fin de la liste si un stockage est possible ou non
+#     Bool = Test(Possibilites,Prod)
+#     return(Bool)
+
+## Appel des fonctions
+# print(StockableRecursif(E1,P1))
+# print("t1")
+# print(t1)
+# print("t2")
+# print(t2)
+# print("dt")
+# print(t2-t1)
+# print(Stockable(E2,P2))
+
+
+############ Algorithme Cyril Gavoile ############
+"""
+Renvoie une liste dont l'element i contient la couleur du sommet i apres coloriage
+"""
+def Coloration(Mat):
+    '''
+    Entree :
+        Mat : Liste de listes dont chaque element contient la liste des sommets voisins de l'element
+    Sortie :
+        Mat_Color : Liste dont chaque element contient la couleur de l'element et dont deux sommets
+        voisins ne sont pas de la meme couleur
+    '''
+    n = len(Mat)
+    Mat_Color = [-1]*n
+    for i in range(n):
+        Lst_Incompatible = Mat[i]
+        for j in range(len(Lst_Incompatible)):
+            Lst_Incompatible[j] = Mat_Color[Lst_Incompatible[j]]
+        couleur = 0
+        while couleur in Lst_Incompatible :
+            couleur +=1
+        Mat_Color[i] = couleur
+    return(Mat_Color)
+
+
+"""
+Renvoie la liste des classes de couleurs : l'element i contient la liste des sommets colories par la couleur i
+"""
+def Classes(Mat):
+    '''
+    Entree :
+        Mat : Liste de listes dont chaque element contient la liste des sommets voisins de l'element
+    Sortie :
+        Lst_Classes : Liste de listes dont chaque dont l'element i contient la liste des sommets de
+        couleur i
+    '''
+    Mat_Color = Coloration(Mat)
+    Max_Couleur = max(Mat_Color)
+    Lst_Classes = [[]]*(Max_Couleur+1)
+    for i in range(len(Mat)):
+        Couleur = Mat_Color[i]
+        Lst_Classes[Couleur] = Lst_Classes[Couleur] + [i]
+    return(Lst_Classes)
+
+
+"""
+Renvoie la liste des sommets remplis
+"""
+def Occupes(Poss):
+    '''
+    Entree :
+        Poss : Liste partiellement remplie contenant dont l'element i contient le produit stocke dans
+        la piece
+    Sortie :
+        Lst_Occupes : Liste des sommets deja occupes
+    '''
+    Lst_Occupes = []
+    for i in range(len(Poss)):
+        if Poss[i] != 'x':
+            Lst_Occupes += [i]
+    return Lst_Occupes
+
+
+"""
+Renvoie la liste des voisins non remplis des sommets deja remplis
+"""
+def Voisins(Ent,Poss):
+    '''
+    Entree :
+        Ent : Liste de listes représentant l'entrepot
+        Poss : Liste partiellement remplie contenant dont l'element i contient le produit stocke dans
+        la piece
+    Sortie :
+        LstRemplies : Liste des pieces remplies
+        Lst : Liste des pieces voisines des pieces deja remplies
+    '''
+    LstRemplie = []
+    Lst = []
+    n = len(Poss)
+    for i in range(n):
+        if Poss[i] != 'x' :
+            LstRemplie += [i]
+    for Piece in LstRemplie :
+        for i in Ent[Piece]:
+            if not i in Lst + LstRemplie:
+                Lst += [i]
+    return LstRemplies,Lst
+
+def Lst_Voisins(Lst,Ent):
+    Lstf = []
+    for i in Lst :
+        for k in Ent[i]:
+            if not k in Lstf:
+                Lstf += [k]
+    return(Lstf)
+
+"""
+Renvoie l'indice et le degre du sommet de degre minimal
+"""
+def Degre_Min(G,Ef):
+    '''
+    Entree :
+        G : Liste de liste representant le graphe (l'element i contient la liste des voisins du
+        sommet i)
+    Sortie :
+        id_min : Entier designant l'indice du sommet de degre minimal
+        d_min : Entier designant le degre minimal du graphe G
+    '''
+    id_min = 0
+    d_min = len(G[0])
+    for i in range(1, len(G)):
+        d = len(G[i])
+        if d < d_min and Ef[i] != 'x':
+            d_min = d
+            id_min = i
+    return(id_min,d_min)
+
+"""
+Renvoie l'indice et le degre du sommet de degre maximal
+"""
+def Degre_Max(G):
+    '''
+    Entree :
+        G : Liste de liste representant le graphe (l'element i contient la liste des voisins du
+        sommet i)
+    Sortie :
+        id_max : Entier designant l'indice du sommet de degre maximal
+        d_max : Entier designant le degre maximal du graphe G
+    '''
+    id_max = 0
+    d_max = len(G[0])
+    for i in range(1, len(G)):
+        d = len(G[i])
+        if d > d_max :
+            d_max = d
+            id_max = i
+    return(id_max,d_max)
+
+
+"""
+Renvoie un booleen traduisant la compatibilite des deux produits
+"""
+def Compatibles(Prod,i,j):
+    return not j in Prod[i]
+
+"""
+Renvoie la liste des produits voisins de la piece i dans E
+"""
+def Prod_Voisins(i,E,Ent):
+    L_Voisins = []
+    for k in Ent[i]:
+        if E[k] != 'x':
+            L_Voisins += [E[k]]
+    return(L_Voisins)
+
+
+def Placement_Possible(p,e,E,Ent,Prod):
+    Color = Coloration(Prod)
+    Vois = Prod_Voisins(e,E,Ent)
+    v = len(Vois)
+    compteur = 0
+    for i in range(v):
+        if Compatibles(Prod,Vois[i],p):
+            compteur += 1
+    return(compteur == v)
+
+
+def Le_Plus_Complique(Prod):
+    max = Prod[0]
+    i_max = 0
+    for i in range(1,len(Prod)):
+        if len(Prod[i]) > max :
+            max = len(Prod[i])
+            i_max = i
+    return(i_max)
+
+
+def Remplissage(Ent,Prod):
+    p = len(Prod)
+    e = len(Ent)
+    E_final = ['x']*e
+    Prod_Restants = [k for k in range(p)]
+    for i in range(p):
+        Produit_A_Placer = Le_Plus_Complique(Prod_Restants)
+        Piece_Deg_Min = Degre_Min(Ent)[0]
+        if Placement_Possible(Produit_A_Placer,Piece_Deg_Min,E_final,Ent,Prod):
+            E_final[Piece_Deg_Min] = Produit_A_Placer
+            for k in range(len(Prod_Restants)):#Elimination du produit a placer
+                if Prod_Restants[k] == Produit_A_Placer:
+                    if k == 0 :
+                        Prod_Restants = Prod_Restants[1:]
+                    elif k == len(Prod_Restants):
+                        Prod_Restants = Prod_Restants[:len(Prod_Restants)]
+                    else :
+                        Prod_Restants = Prod_Restants[:k] + Prod_Restants[k+1:]
+        else :
+            for k in range(len(Prod_Restants)):
+                if Prod_Restants[k] == Produit_A_Placer:
+                    if k == 0 :
+                        Prod_Restants = Prod_Restants[1:]
+                    elif k == len(Prod_Restants):
+                        Prod_Restants = Prod_Restants[:len(Prod_Restants)]
+                    else :
+                        Prod_Restants = Prod_Restants[:k] + Prod_Restants[k+1:]
+                    Prod_Restants +=[k]
+    return(E_final)
+
+# print(Remplissage(E2,P2))
+
+
+
+def RemplissageAlgo(Ent,Prod):
+    #Initialisation
+    n = len(Ent) ; p = len(Prod)
+    EntRempli = [[] * n]
+    print(EntRepli)
+    EntRempli[Degre_Min(Ent)] = Prod[Degre_Max(Prod)]
+    Classe = Classes(Prod)
+    M = Lst_Voisins(EntRempli[Degre_Min(Ent)],Ent)
+    while len(Classe[Degre_Max(Prod)]) > len(M):
+        M += Lst_Voisins(M)
+
+
+RemplissageAlgo(E1,P1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+def RemplissageRec(Ent,EntRestant,Prod,Poss,NbPiecesRestantes,NbProdRestants):
+    if NbPiecesRestantes >= 0 and NbProdRestants == 0:
+        return Ent
+    elif NbPiecesRestantes == 0 and NbProdRestants > 0:
+        return 'Pas de stockage possible'
+    else :
+        M = Occupes(Poss)
+        M1 = Voisins(Ent,Poss)
+        p0 = Degre_Max(Prod)
+
+def Remplissage(Ent,Prod):
+    C = Classes(Prod)
+    E0 = Degre_Max
+"""
+
+
+
+
+
